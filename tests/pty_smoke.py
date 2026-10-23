@@ -179,6 +179,16 @@ for name, action, expected in [
     check(f"exits with {expected}", code == expected, f"exit {code}")
     check("terminal restored", restored(s.out))
 
+print("session end redraws without a keypress (takes ~1 min)")
+s = Session("1")
+s.read(62.0)
+screen = s.screen.text()
+check("shows SESSION COMPLETE on its own", "SESSION COMPLETE" in screen and "Take a break" in screen, screen)
+check("timer shows 00:00", "00:01" not in s.screen.text())
+os.write(s.fd, b"q")
+code = s.wait_exit()
+check("q exits with 0", code == 0, f"exit {code}")
+
 print("plain mode (--no-tui)")
 s = Session("1", "--no-tui")
 out = s.read(1.2).decode()

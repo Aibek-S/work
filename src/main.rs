@@ -177,7 +177,7 @@ where
     let mut dirty = true;
     loop {
         let now = Instant::now();
-        app.tick(now);
+        dirty |= app.tick(now);
         if app.quit || signal.load(Ordering::Relaxed) != SIG_NONE {
             return Ok(());
         }

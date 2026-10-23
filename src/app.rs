@@ -105,8 +105,12 @@ impl App {
     }
 
     /// Periodic housekeeping: detects the end of the session and services audio.
-    pub fn tick(&mut self, now: Instant) {
+    /// Returns true when visible state changed on its own (session finished,
+    /// audio failed), so the caller must redraw even though the timer stopped.
+    pub fn tick(&mut self, now: Instant) -> bool {
+        let mut changed = false;
         if !self.finished && self.timer.is_finished(now) {
+            changed = true;
             self.finished = true;
             self.overlay = Overlay::None;
             self.sync_audio(); // fades the noise out
@@ -123,11 +127,13 @@ impl App {
                 self.audio_error = Some(e);
                 self.audio = None;
                 self.audio_enabled = false;
+                changed = true;
             } else {
                 a.maintain(now);
             }
         }
         self.notifier.reap();
+        changed
     }
 
     /// How long the event loop may sleep before something on screen or in audio changes.
@@ -228,10 +234,14 @@ mod tests {
         a.tick(t0 + Duration::from_secs(500));
         assert!(!a.finished, "paused timer must not finish");
         a.handle(Action::TogglePause, t0 + Duration::from_secs(500));
-        a.tick(t0 + Duration::from_secs(549));
+        assert!(!a.tick(t0 + Duration::from_secs(549)));
         assert!(!a.finished);
-        a.tick(t0 + Duration::from_secs(550));
+        assert!(
+            a.tick(t0 + Duration::from_secs(550)),
+            "finish must request a redraw"
+        );
         assert!(a.finished && !a.sound_on());
+        assert!(!a.tick(t0 + Duration::from_secs(551)), "only once");
         // Pause is ignored once finished.
         a.handle(Action::TogglePause, t0 + Duration::from_secs(551));
         assert!(a.finished);
